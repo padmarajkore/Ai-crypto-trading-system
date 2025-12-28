@@ -1,0 +1,217 @@
+# pragma pylint: disable=missing-docstring, invalid-name, pointless-string-statement
+# flake8: noqa: F401
+# isort: skip_file
+# --- Do not remove these imports ---
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta, timezone
+from pandas import DataFrame
+from typing import Optional, Union
+
+from freqtrade.strategy import (
+    IStrategy,
+    Trade,
+    Order,
+    PairLocks,
+    informative,  # @informative decorator
+    # Hyperopt Parameters
+    BooleanParameter,
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    RealParameter,
+    # timeframe helpers
+    timeframe_to_minutes,
+    timeframe_to_next_date,
+    timeframe_to_prev_date,
+    # Strategy helper functions
+    merge_informative_pair,
+    stoploss_from_absolute,
+    stoploss_from_open,
+)
+
+# --------------------------------
+# Add your lib to import here
+import talib.abstract as ta
+from technical import qtpylib
+
+
+# This class is a sample. Feel free to customize it.
+class SampleStrategy(IStrategy):
+    """
+    Aggressive Scalping Strategy - High frequency trading with tight stops and quick profits
+    Uses simple indicators like RSI crossings and EMA crossovers for frequent signals
+    Based on market analysis showing high volatility from recent whale movements
+    """
+
+    # Strategy interface version - allow new iterations of the strategy interface.
+    INTERFACE_VERSION = 3
+
+    can_short: bool = True
+
+    # Minimal ROI designed for the strategy.
+    # This attribute will be overridden if the config file contains "minimal_roi".
+    minimal_roi = {
+        "0": 0.01,     # 1% immediately
+        "5": 0.005,    # 0.5% after 5 minutes
+        "10": 0.002    # 0.2% after 10 minutes
+    }
+
+    # Optimal stoploss designed for the strategy.
+    # This attribute will be overridden if the config file contains "stoploss".
+    stoploss = -0.015  # Tightened to -1.5% for aggressive scalping with recent high-impact news
+
+    # Trailing stoploss
+    trailing_stop = True
+    trailing_stop_positive = 0.002  # Enable trailing stop earlier at 0.2%
+    trailing_stop_positive_offset = 0.004  # Lock in profit at 0.4%
+    trailing_only_offset_is_reached = True
+
+    # Optimal timeframe for the strategy.
+    timeframe = "1m"  # Changed to 1m for high-frequency scalping
+
+    # Run "populate_indicators()"" only for new candle.
+    process_only_new_candles = True
+
+    # These values can be overridden in the config.
+    use_exit_signal = True
+    exit_profit_only = False
+    ignore_roi_if_entry_signal = False
+
+    # Hyperoptable parameters
+    rsi_buy = IntParameter(30, 50, default=40, space='buy', optimize=True)
+    rsi_sell = IntParameter(50, 70, default=60, space='sell', optimize=True)
+    
+    # Number of candles the strategy requires before producing valid signals
+    startup_candle_count: int = 50
+
+    # Optional order type mapping.
+    order_types = {
+        "entry": "limit",
+        "exit": "limit",
+        "stoploss": "market",
+        "stoploss_on_exchange": False,
+    }
+
+    # Optional order time in force.
+    order_time_in_force = {"entry": "GTC", "exit": "GTC"}
+
+    plot_config = {
+        "main_plot": {
+            "ema9": {"color": "orange"},
+            "ema21": {"color": "blue"},
+        },
+        "subplots": {
+            "RSI": {
+                "rsi": {"color": "red"},
+            }
+        }
+    }
+
+    def informative_pairs(self):
+        """
+        Define additional, informative pair/interval combinations to be cached from the exchange.
+        These pair/interval combinations are non-tradeable, unless they are part
+        of the whitelist as well.
+        For more information, please consult the documentation
+        :return: List of tuples in the format (pair, interval)
+            Sample: return [("ETH/USDT", "5m"),
+                            ("BTC/USDT", "15m"),
+                            ]
+        """
+        return []
+
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Adds several different TA indicators to the given DataFrame
+
+        Performance Note: For the best performance be frugal on the number of indicators
+        you are using. Let uncomment only the indicator you are using in your strategies
+        or your hyperopt configuration, otherwise you will waste your memory and CPU usage.
+        :param dataframe: Dataframe with data from the exchange
+        :param metadata: Additional information, like the currently traded pair
+        :return: a Dataframe with all mandatory indicators for the strategies
+        """
+
+        # RSI for momentum
+        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        
+        # EMAs for quick crossovers
+        dataframe['ema9'] = ta.EMA(dataframe, timeperiod=9)
+        dataframe['ema21'] = ta.EMA(dataframe, timeperiod=21)
+        
+        # Price change percentage for volatility measurement
+        dataframe['price_change'] = (dataframe['close'] - dataframe['open']) / dataframe['open']
+        
+        # Volume indicators
+        dataframe['volume_sma'] = dataframe['volume'].rolling(window=20).mean()
+
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populates the entry signal for the given dataframe
+        :param dataframe: DataFrame
+        :param metadata: Additional information, like the currently traded pair
+        :return: DataFrame with entry columns populated
+        """
+        
+        # Aggressive long entry conditions - simplified for high frequency
+        dataframe.loc[
+            (
+                # RSI crosses above 40 (oversold to neutral)
+                (qtpylib.crossed_above(dataframe['rsi'], self.rsi_buy.value)) |
+                # EMA crossover - faster EMA crosses above slower EMA
+                (qtpylib.crossed_above(dataframe['ema9'], dataframe['ema21']))
+            ),
+            "enter_long",
+        ] = 1
+
+        # Aggressive short entry conditions - simplified for high frequency
+        dataframe.loc[
+            (
+                # RSI crosses below 60 (overbought to neutral)
+                (qtpylib.crossed_below(dataframe['rsi'], self.rsi_sell.value)) |
+                # EMA crossover - faster EMA crosses below slower EMA
+                (qtpylib.crossed_below(dataframe['ema9'], dataframe['ema21']))
+            ),
+            "enter_short",
+        ] = 1
+
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Based on TA indicators, populates the exit signal for the given dataframe
+        :param dataframe: DataFrame
+        :param metadata: Additional information, like the currently traded pair
+        :return: DataFrame with exit columns populated
+        """
+        
+        # Quick exit for long positions
+        dataframe.loc[
+            (
+                # RSI crosses below 60 (take profit)
+                (qtpylib.crossed_below(dataframe['rsi'], self.rsi_sell.value)) |
+                # EMA crossover in opposite direction
+                (qtpylib.crossed_below(dataframe['ema9'], dataframe['ema21'])) |
+                # Fixed time exit based on ROI
+                (dataframe['close'] < dataframe['open'])  # Simple red candle exit
+            ),
+            "exit_long",
+        ] = 1
+
+        # Quick exit for short positions
+        dataframe.loc[
+            (
+                # RSI crosses above 40 (take profit)
+                (qtpylib.crossed_above(dataframe['rsi'], self.rsi_buy.value)) |
+                # EMA crossover in opposite direction
+                (qtpylib.crossed_above(dataframe['ema9'], dataframe['ema21'])) |
+                # Fixed time exit based on ROI
+                (dataframe['close'] > dataframe['open'])  # Simple green candle exit
+            ),
+            "exit_short",
+        ] = 1
+
+        return dataframe
