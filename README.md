@@ -5,6 +5,10 @@
 [![Freqtrade](https://img.shields.io/badge/freqtrade-latest-orange.svg)](https://www.freqtrade.io/)
 [![Google ADK](https://img.shields.io/badge/Google-ADK-4285F4.svg)](https://ai.google.dev/adk)
 
+
+https://github.com/user-attachments/assets/95a10f5d-df08-4b2f-9a79-25ae8ddfb216
+
+
 An intelligent cryptocurrency trading system combining Google ADK AI agents with Freqtrade for automated trading with AI-powered market analysis, strategy design, and risk management.
 
 ## ✨ Features
