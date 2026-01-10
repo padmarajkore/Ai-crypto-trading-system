@@ -141,6 +141,11 @@ ai-crypto-trading-system/
 │           ├── market_intel/       # Market analysis
 │           ├── strategy_designer/  # Strategy generation
 │           └── risk_controller/    # Risk management
+│           └── strategy_refiner/   # Strategy refinement
+│           └── telegram_news/      # Telegram news
+│           └── web_search/         # Web search
+│           └── math_expert/        # Math expert
+│           └── strategy_refiner/   # Strategy refinement
 ├── freqtrade/                      # Freqtrade Trading Bot
 │   ├── README.md
 │   ├── adk_config.json             # Bot configuration
