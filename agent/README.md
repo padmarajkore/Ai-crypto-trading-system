@@ -24,8 +24,16 @@ ai-crypto-trading-system/agent/
         │   └── agent.py      # LLM market-sentiment synthesis
         ├── strategy_designer/
         │   └── agent.py      # LLM strategy proposal generation
-        └── risk_controller/
-            └── agent.py      # LLM risk checks & position sizing guidance
+        ├── risk_controller/
+        │   └── agent.py      # LLM risk checks & position sizing 
+        ├── strategy_refiner/
+        │   └── agent.py      # LLM strategy refinement
+        ├── telegram_news/
+        │   └── agent.py      # LLM news analysis 
+        ├── web_search/
+        │   └── agent.py      # LLM web search
+        ├── math_expert/
+             └── agent.py      # LLM math expert
 ```
 
 ### Agent Responsibilities
