@@ -73,6 +73,19 @@ FREQTRADE_PASSWORD=SuperSecret1!
 FREQTRADE_VERIFY_TLS=false
 ```
 
+also in the file
+
+into into ai-crypto-trading-system/agent/crypto_trading_agent/tools/telegram_tool.py
+
+add
+
+``` agentic_system communication
+BOT_TOKEN = "add_your_bot_token"
+CHAT_ID = "chat_id"
+```
+
+> **note**: refer telegram docs/project readme to create one BOT_TOKEN.
+
 > **Security note:** keep the API bound to localhost or tunnel it via SSH/VPN. The REST API provides full control over your bot.
 
 ## Running the Agent
