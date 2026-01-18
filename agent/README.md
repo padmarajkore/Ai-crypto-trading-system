@@ -115,9 +115,3 @@ cd /path/to/ai-crypto-trading-system/agent/crypto_trading_agent
 - Responses are normalized into dicts that ADK tools can return directly.
 - `forceenter` and `forceexit` endpoints are exposed for manual overrides; ensure `force_entry_enable` is enabled in your Freqtrade config.
 - Extend `freqtrade_client.py` with additional endpoints (e.g., `/performance`, `/balance`) as needed.
-
-## Next Steps
-
-- Add automated sentiment feeds (news/price APIs) as additional tools feeding the MarketIntelAgent.
-- Schedule agent runs or connect it to alerts for continuous monitoring.
-- Store generated strategies/trade rationales in persistent storage for auditing.
